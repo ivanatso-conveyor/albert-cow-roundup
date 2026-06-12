@@ -697,6 +697,10 @@ let cows = [];                // wandering cows
 let wolves = [];              // wolves on the hunt for Albert
 let nadim = null;             // Nadim, mid-cameo (or null)
 let nadimTimer = 14;          // seconds until Nadim's next dash
+// Nadim's catchphrases — he cycles through them, one per occasion
+const NADIM_LINES = ['HI ALBERT!', 'PLS REVIEW MY PR', 'LGTM 🚢 IT'];
+let nadimLine = 0;
+function nadimSays() { return NADIM_LINES[nadimLine++ % NADIM_LINES.length]; }
 let flyers = [];              // cows mid-air, flying into the basket
 let poops = [];               // 💩 decorations left on the field
 let particles = [];
@@ -1047,7 +1051,7 @@ function update(dt) {
         wf.fleeDir = wf.x < nadim.x ? -1 : 1;
         sfx.yipe();
         addPopup(wf.x - camX, wf.y - 80, 'YIPE!', '#ff5a5a');
-        addPopup(nadim.x - camX, nadim.y - 95, 'SHOO! GIT!', '#a8c8e0');
+        addPopup(nadim.x - camX, nadim.y - 95, nadimSays(), '#a8c8e0');
       }
       if (nadim.t <= 0) { nadim.state = 'petseek'; nadim.t = 4; nadim.wolf = null; }
     } else if (nadim.state === 'petseek') {
@@ -1090,7 +1094,7 @@ function update(dt) {
         nadim.y += (albert.y - nadim.y) / d * NSPEED * dt;
       } else {
         nadim.state = 'wave'; nadim.t = 1.7;
-        addPopup(nadim.x - camX, nadim.y - 95, 'HI ALBERT!', '#a8c8e0');
+        addPopup(nadim.x - camX, nadim.y - 95, nadimSays(), '#a8c8e0');
         sfx.pickup();
       }
     } else if (nadim.state === 'wave') {
