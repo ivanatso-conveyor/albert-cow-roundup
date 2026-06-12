@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albert's Last Roundup 🐄</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root { --green:#6ea556; --dark:#23301c; --cream:#fdf6e3; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #1b2417;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #game {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #87ceeb;
+    max-width: 100vw; max-height: 100vh;
+    aspect-ratio: 16/9;
+    width: min(100vw, calc(100vh * 16 / 9));
+    cursor: none;
+  }
+  #cam {
+    position: absolute; bottom: 12px; right: 12px;
+    width: 150px; border: 3px solid var(--dark);
+    border-radius: 6px;
+    transform: scaleX(-1);
+    display: none; opacity: .85; z-index: 5;
+  }
+  /* ---------- overlays ---------- */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 22, 12, .75);
+    z-index: 10;
+  }
+  .card {
+    background: var(--cream);
+    border: 6px solid var(--dark);
+    box-shadow: 0 8px 0 rgba(0,0,0,.45);
+    padding: 28px 34px;
+    max-width: 640px; width: 90%;
+    text-align: center;
+    color: var(--dark);
+    line-height: 1.9;
+  }
+  .card h1 { font-size: 22px; margin: 0 0 14px; color: #3e5a2b; text-shadow: 2px 2px 0 #cfe3b8; }
+  .card p  { font-size: 10px; margin: 8px 0; }
+  .card .big { font-size: 13px; }
+  .gesture { font-size: 38px; letter-spacing: 14px; margin: 10px 0; animation: pinchy 1.4s infinite; }
+  @keyframes pinchy { 0%,100% { transform: scale(1);} 50% { transform: scale(.85);} }
+  .legend { width: fit-content; margin: 6px auto 10px; display: flex; flex-direction: row; gap: 38px; align-items: flex-end; }
+  .legend .item { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 9px; text-align: center; }
+  .legend img { image-rendering: pixelated; height: 52px; width: auto; }
+  .legend #legendPoop { height: 30px; }
+  button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px; color: #fff;
+    background: #4f7d36; border: 4px solid var(--dark);
+    box-shadow: 0 4px 0 var(--dark);
+    padding: 13px 18px; margin: 10px 6px 0;
+    cursor: pointer;
+  }
+  button:hover { background: #639a45; }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--dark); }
+  button.alt { background: #8a6d3b; }
+  button.alt:hover { background: #a3854e; }
+  #status { font-size: 9px; color: #7a4a21; min-height: 14px; margin-top: 10px; }
+  #endTitle { font-size: 24px; color: #b3541e; text-shadow: 2px 2px 0 #f6d8a8; margin: 0 0 10px; }
+  .hidden { display: none !important; }
+  /* confetti */
+  .confetti {
+    position: absolute; top: -20px;
+    width: 10px; height: 10px; z-index: 9;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); }
+  }
+  /* leaderboard */
+  #nameInput {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px; color: var(--dark);
+    background: #fff; border: 4px solid var(--dark);
+    padding: 12px; width: 210px;
+    text-transform: uppercase; vertical-align: middle;
+  }
+  #saveRow button { padding: 12px 14px; vertical-align: middle; }
+  #board { margin-top: 12px; font-size: 10px; text-align: left; max-height: 170px; overflow-y: auto; }
+  #board .bTitle { text-align: center; margin: 6px 0; color: #7a4a21; }
+  #board .row { display: flex; justify-content: space-between; padding: 5px 4px; border-bottom: 2px solid #d8cfae; }
+  #board .row.me { background: #f6e7a8; }
+  #board .rank { color: #7a4a21; margin-right: 8px; }
+  #muteBtn {
+    position: absolute; top: 10px; right: 10px; z-index: 6;
+    font-size: 14px; padding: 8px 10px; margin: 0;
+    background: rgba(35,48,28,.8);
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+  <video id="cam" playsinline muted></video>
+  <button id="muteBtn" title="Mute">🔊</button>
+
+  <!-- ======== START / TUTORIAL SCREEN ======== -->
+  <div class="overlay" id="startOverlay">
+    <div class="card">
+      <h1>ALBERT'S LAST ROUNDUP</h1>
+      <p class="big">Show your hand — Albert chases it. <b>PINCH</b> to scoop up cows!</p>
+      <div class="gesture">✋ → 🤏</div>
+      <div class="legend">
+        <div class="item"><img id="legendGold" alt="golden cow"><span>3x</span></div>
+        <div class="item"><img id="legendWolf" alt="wolf"><span>Don't get caught!</span></div>
+        <div class="item"><img id="legendPoop" alt="poop"><span>Don't slip!</span></div>
+      </div>
+      <button id="btnCam">🎥 PLAY WITH HAND TRACKING</button>
+      <button id="btnMouse" class="alt">🖱️ PLAY WITH MOUSE</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <!-- ======== END SCREEN ======== -->
+  <div class="overlay hidden" id="endOverlay">
+    <div class="card">
+      <h1 id="endTitle">HAPPY TRAILS, ALBERT! 🐄</h1>
+      <p class="big" id="endScore"></p>
+      <p id="endQuip"></p>
+      <p>Thanks for all the moo-mories. The herd won't be the same without you!</p>
+      <div id="saveRow">
+        <input id="nameInput" maxlength="12" placeholder="YOUR NAME" autocomplete="off">
+        <button id="btnSave">💾 SAVE</button>
+      </div>
+      <div id="board"></div>
+      <button id="btnAgain">⟳ PLAY AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* =====================================================================
+   ALBERT'S LAST ROUNDUP — an 8-bit cow collector farewell game
+   Albert runs after your hand; pinch to scoop cows onto his back!
+   ===================================================================== */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = 960, H = 540;
+
+const ROUND_SECONDS = 60;
+const FIELD_TOP = 300, FIELD_BOTTOM = 505;
+const WORLD_W = 1280;                       // world is wider than screen → parallax
+const GRAB_RADIUS = 90;                     // how close Albert must be to scoop
+const MAX_COWS = 6;                         // never more than this many on the field
+
+/* ---------------------------------------------------------------------
+   1. PIXEL SPRITES — each sprite is rows of characters + a color palette
+--------------------------------------------------------------------- */
+const PAL = {
+  k:'#1c1c1c', w:'#f8f8f8', p:'#f4b8c1', P:'#d98a98', d:'#4a505c',
+  s:'#e8b88a', o:'#6e7f4c', y:'#8d8d8d', g:'#ffd95e', G:'#c98f1b',
+  a:'#9a9a9a', A:'#5f5f5f', r:'#d62222', b:'#8a5a2b', B:'#5a3415',
+  e:'#ffffff', t:'#cfb591'
+};
+
+// --- cow: big cute head facing you, like the reference pixel art ---
+// Style A — big front-facing head, little body tucked behind (reference 2)
+const COW_A_MAP = [
+  "...tt......tt.....",
+  "...kkkkkkkkkk.....",
+  "..kwwwwwwwwwwk....",
+  ".kkwwwwwwwwwwkk...",
+  "..kwkwwwwwkwwk....",
+  "..kwwppppppwwkkk..",
+  "..kwwpPppPpwwkwwk.",
+  "..kwwppppppwwkdwk.",
+  "...kwwwwwwwwkdwwk.",
+  "...kkkkkkkkkkkwwk.",
+  "....kwwk.kwwk.kwk.",
+  "....kwwk.kwwk.kwk.",
+  "....kAAk.kAAk.kAk.",
+  ".................."
+];
+const COW_A_WALK2_MAP = COW_A_MAP.map((r, i) => {
+  if (i === 10) return "...kwwk..kwwk.kwk.";
+  if (i === 11) return "...kwwk..kwwk.kwk.";
+  if (i === 12) return "...kAAk..kAAk.kAk.";
+  return r;
+});
+const COW_A_GRAZE_MAP = COW_A_MAP.map((r, i) => {
+  if (i === 4) return "..kwkkwwwkkwwk...."; // closed "- -" eyes while snacking
+  return r;
+});
+
+
+// the wolf — side view with pointy ears, white snout, and a bushy drooping tail
+const WOLF_MAP = [
+  "...k..k.............",
+  "...kk.kk............",
+  "..kaaaaak...........",
+  ".kapaaaaak..........",
+  "keeaaaaaaakkkk......",
+  ".keeaaaaaaaaaaakk...",
+  "..kaaaaaaaaaaaaaakk.",
+  "..keaaaaaaaaaaakaak.",
+  "...kaaaak..kaak.kaak",
+  "...kaak.....kaak.kk.",
+  "...kaak.....kaak....",
+  "...kaak.....kaak....",
+  "...kAAk.....kAAk....",
+  "...................."
+];
+// gallop frame — legs stretched out mid-stride
+const WOLF_RUN2_MAP = WOLF_MAP.map((r, i) => {
+  if (i === 9)  return "..kaak.......kaak.kk";
+  if (i === 10) return "..kaak.......kaak...";
+  if (i === 11) return "..kaak.......kaak...";
+  if (i === 12) return "..kAAk.......kAAk...";
+  return r;
+});
+
+// the classic swirl, with an outline so it reads clearly
+const POOP_MAP = [
+  "....kk....",
+  "...kbbk...",
+  "....kbbk..",
+  "..kbbbbbk.",
+  ".kbbbbbbbk",
+  "kbbbbbbbbk",
+  "kbBbbbbBbk",
+  ".kkkkkkkk."
+];
+
+// --- Albert: idle / run frames / grab (arm out) ---
+const ALBERT_MAP = [
+  "...kkkkkk...",
+  "..kkkkkkkk..",
+  "..kssssssk..",
+  "..ssksskss..",
+  "..ssssssss..",
+  "..ssskksss..",
+  "...ssssss...",
+  "...oooooo...",
+  "..oooooooo..",
+  "..soooooos..",
+  "..soooooos..",
+  "...oooooo...",
+  "...yyyyyy...",
+  "...yy..yy...",
+  "...ss..ss...",
+  "...kk..kk..."
+];
+const ALBERT_RUN1_MAP = ALBERT_MAP.map((r, i) => {
+  if (i === 14) return "..ss....ss..";
+  if (i === 15) return ".kk......kk.";
+  return r;
+});
+const ALBERT_RUN2_MAP = ALBERT_MAP.map((r, i) => {
+  if (i === 14) return "....ss.ss...";
+  if (i === 15) return "...kk...kk..";
+  return r;
+});
+const ALBERT_GRAB_MAP = ALBERT_MAP.map((r, i) => {
+  if (i === 9)  return "..ooooooosss";  // arm reaching out
+  if (i === 10) return "..soooooo...";
+  return r;
+});
+
+// basket worn on Albert's back
+const BASKET_MAP = [
+  "kBbBbBbBbk",
+  "kbBbBbBbBk",
+  "kBbBbBbBbk",
+  "kbBbBbBbBk",
+  ".kkkkkkkk."
+];
+
+const GLOVE_OPEN = [
+  "...kk.....",
+  "..kwwk....",
+  "..kwwk....",
+  ".kkwwkkk..",
+  "kwwwwwwwk.",
+  "kwwwwwwwwk",
+  ".kwwwwwwk.",
+  ".kwwwwwwk.",
+  "..kwwwwk..",
+  "...kkkk..."
+];
+const GLOVE_PINCH = [
+  "..kkkk....",
+  ".kwwwwk...",
+  ".kw..wk...",
+  "..kwwk....",
+  ".kkwwkkk..",
+  "kwwwwwwwk.",
+  "kwwwwwwwk.",
+  ".kwwwwwk..",
+  ".kwwwwwk..",
+  "..kkkkk..."
+];
+
+// Bake a sprite (string rows) into an offscreen canvas, scaled up
+function bake(map, scale, swap = {}) {
+  const c = document.createElement('canvas');
+  c.width = map[0].length * scale;
+  c.height = map.length * scale;
+  const g = c.getContext('2d');
+  map.forEach((row, ry) => {
+    [...row].forEach((ch, rx) => {
+      if (ch === '.') return;
+      g.fillStyle = swap[ch] || PAL[ch] || '#000';
+      g.fillRect(rx * scale, ry * scale, scale, scale);
+    });
+  });
+  return c;
+}
+
+const GOLD = { w:'#ffd95e', d:'#fff3c0', k:'#7a5410', A:'#7a5410', p:'#f7b8c8', P:'#d98a98' };
+
+// --- cow breeds, color palettes matched to the reference photos ---
+const BREEDS = {
+  holstein: {},                                                          // white + slate patches
+  jersey:   { w:'#b98c63', d:'#8f6845', p:'#d8ab85', P:'#a87752' },      // light brown calf
+  redwhite: { d:'#b35c33' },                                             // white + red patches
+  brown:    { w:'#a8714a', d:'#7a4f30', p:'#d8ab85', P:'#9a6a4a', t:'#4a4a4a' }, // dark brown, dark horns
+  gold:     GOLD,                                                        // rare bonus cow
+};
+const BREED_KEYS = ['holstein', 'jersey', 'redwhite', 'brown'];
+
+function bakeCowSet(swap) {
+  return {
+    stand: bake(COW_A_MAP, 4, swap),
+    walk2: bake(COW_A_WALK2_MAP, 4, swap),
+    graze: bake(COW_A_GRAZE_MAP, 4, swap),
+    mini:  bake(COW_A_MAP, 2, swap),
+  };
+}
+
+const SPR = {
+  cows: Object.fromEntries(
+    Object.entries(BREEDS).map(([k, s]) => [k, bakeCowSet(s)])),
+  wolf:       bake(WOLF_MAP, 4, { e:'#f0f0f0', p:'#f0a8c0' }),
+  wolfRun2:   bake(WOLF_RUN2_MAP, 4, { e:'#f0f0f0', p:'#f0a8c0' }),
+  poop:       bake(POOP_MAP, 3),
+  albert:     bake(ALBERT_MAP, 4),
+  albertRun1: bake(ALBERT_RUN1_MAP, 4),
+  albertRun2: bake(ALBERT_RUN2_MAP, 4),
+  albertGrab: bake(ALBERT_GRAB_MAP, 4),
+  basket:     bake(BASKET_MAP, 4),
+  gloveOpen:  bake(GLOVE_OPEN, 2),
+  glovePinch: bake(GLOVE_PINCH, 2),
+};
+
+// show the real game art in the instructions legend
+document.getElementById('legendGold').src = SPR.cows.gold.stand.toDataURL();
+document.getElementById('legendWolf').src = SPR.wolf.toDataURL();
+document.getElementById('legendPoop').src = SPR.poop.toDataURL();
+
+function drawFlipped(img, x, y) {
+  ctx.save();
+  ctx.translate(x + img.width, y);
+  ctx.scale(-1, 1);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+/* ---------------------------------------------------------------------
+   2. CHIPTUNE AUDIO — everything generated with the Web Audio API
+--------------------------------------------------------------------- */
+let audio = null, muted = false, bgmTimer = null;
+
+function initAudio() {
+  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === 'suspended') audio.resume();
+}
+function beep(freq, dur = .1, type = 'square', vol = .12, when = 0, slideTo = null) {
+  if (!audio || muted) return;
+  const t = audio.currentTime + when;
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  o.connect(g); g.connect(audio.destination);
+  o.start(t); o.stop(t + dur + .02);
+}
+const sfx = {
+  pickup() { beep(440, .07); beep(660, .09, 'square', .12, .07); },
+  moo()    { beep(220, .35, 'sawtooth', .14, 0, 110); beep(330, .3, 'square', .08, .05, 165); },
+  gold()   { [660, 880, 1100, 1320].forEach((f, i) => beep(f, .09, 'square', .12, i * .07)); },
+  bad()    { [180, 140, 100].forEach((f, i) => beep(f, .16, 'sawtooth', .18, i * .14)); },
+  tick()   { beep(880, .05, 'square', .07); },
+  plop()   { beep(160, .12, 'sine', .1, 0, 70); },
+  howl()   { beep(420, .5, 'sawtooth', .1, 0, 150); beep(630, .4, 'triangle', .07, .08, 220); },
+  slip()   { beep(600, .35, 'sine', .13, 0, 130); },
+  fanfare(){ [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, .16, 'square', .14, i * .14)); },
+};
+// Old MacDonald — public-domain farm tune, very quiet, loops forever
+const NOTE = { C:261.6, D:293.7, E:329.6, F:349.2, G:392, A:440, R:0 };
+const MELODY = ['C','C','C','G','A','A','G','R','E','E','D','D','C','R','R','R'];
+function startBGM() {
+  stopBGM();
+  let i = 0;
+  bgmTimer = setInterval(() => {
+    const n = MELODY[i % MELODY.length];
+    if (n !== 'R') beep(NOTE[n], .22, 'triangle', .05);
+    i++;
+  }, 280);
+}
+function stopBGM() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
+
+document.getElementById('muteBtn').addEventListener('click', e => {
+  muted = !muted;
+  e.target.textContent = muted ? '🔇' : '🔊';
+});
+
+/* ---------------------------------------------------------------------
+   3. PARALLAX BACKGROUND — layers baked once, drawn with offsets
+--------------------------------------------------------------------- */
+function makeLayer(w, h, painter) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  painter(g);
+  return c;
+}
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function irnd(a, b) { return Math.floor(rnd(a, b)); }
+
+const LAYER_W = WORLD_W + 200;
+
+const skyLayer = makeLayer(W, H, g => {
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#8fd3f0'); grad.addColorStop(.6, '#cfeef7'); grad.addColorStop(1, '#f3efd2');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  // pixel sun
+  g.fillStyle = '#ffe27a';
+  g.fillRect(796, 56, 56, 56); g.fillRect(784, 68, 80, 32); g.fillRect(808, 44, 32, 80);
+  g.fillStyle = '#fff3b8'; g.fillRect(808, 68, 32, 32);
+});
+
+const hillLayer = makeLayer(LAYER_W, H, g => {
+  g.fillStyle = '#a8c87e';
+  for (let x = 0; x < LAYER_W; x += 8) {
+    const y = 250 + Math.sin(x * .004) * 34 + Math.sin(x * .013) * 12;
+    g.fillRect(x, Math.floor(y / 8) * 8, 8, H);
+  }
+  g.fillStyle = '#93b86b';
+  for (let x = 0; x < LAYER_W; x += 8) {
+    const y = 286 + Math.sin(x * .006 + 9) * 26;
+    g.fillRect(x, Math.floor(y / 8) * 8, 8, H);
+  }
+});
+
+const treeLayer = makeLayer(LAYER_W, H, g => {
+  for (let i = 0; i < 26; i++) {
+    const x = irnd(0, LAYER_W - 40), y = irnd(268, 296);
+    g.fillStyle = '#5a3415'; g.fillRect(x + 12, y + 20, 8, 16);
+    g.fillStyle = ['#3e7034', '#4c8440', '#356029'][i % 3];
+    g.fillRect(x, y + 8, 32, 16); g.fillRect(x + 8, y, 16, 12); g.fillRect(x + 4, y + 4, 24, 12);
+  }
+  // fence line
+  g.fillStyle = '#8a5a2b';
+  for (let x = 0; x < LAYER_W; x += 56) { g.fillRect(x, 296, 6, 26); }
+  g.fillRect(0, 302, LAYER_W, 5); g.fillRect(0, 312, LAYER_W, 5);
+});
+
+const fieldLayer = makeLayer(LAYER_W, H, g => {
+  g.fillStyle = '#79b356'; g.fillRect(0, FIELD_TOP, LAYER_W, H - FIELD_TOP);
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = ['#6aa54a', '#86c163', '#5f9a41'][i % 3];
+    g.fillRect(irnd(0, LAYER_W), irnd(FIELD_TOP + 6, H), 6, 4);
+  }
+  for (let i = 0; i < 40; i++) { // little flowers
+    const x = irnd(0, LAYER_W), y = irnd(FIELD_TOP + 10, H - 10);
+    g.fillStyle = ['#f8e36b', '#f3a3b5', '#fdfdfd'][i % 3];
+    g.fillRect(x, y, 5, 5);
+  }
+});
+
+const frontLayer = makeLayer(LAYER_W, 70, g => {
+  for (let i = 0; i < 90; i++) {
+    const x = irnd(0, LAYER_W), y = irnd(8, 56);
+    g.fillStyle = ['#4c8440', '#3e7034'][i % 2];
+    g.fillRect(x, y, 6, 14); g.fillRect(x + 8, y + 4, 6, 10); g.fillRect(x - 8, y + 6, 6, 8);
+  }
+});
+
+const clouds = Array.from({ length: 6 }, () => ({
+  x: rnd(0, LAYER_W), y: rnd(30, 150), s: rnd(.7, 1.4), v: rnd(3, 9)
+}));
+function drawCloud(x, y, s) {
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  ctx.fillRect(x, y + 10 * s, 80 * s, 18 * s);
+  ctx.fillRect(x + 14 * s, y, 36 * s, 16 * s);
+  ctx.fillRect(x + 44 * s, y + 4 * s, 26 * s, 12 * s);
+}
+
+/* ---------------------------------------------------------------------
+   4. INPUT — MediaPipe hand tracking, with mouse/touch fallback
+--------------------------------------------------------------------- */
+const cursor = { x: W / 2, y: H / 2, pinch: false, present: false, mode: 'mouse' };
+let handLandmarker = null;
+const video = document.getElementById('cam');
+
+async function setupHands(statusCb) {
+  const { HandLandmarker, FilesetResolver } =
+    await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');
+  statusCb('Loading hand model…');
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+      delegate: 'GPU'
+    },
+    runningMode: 'VIDEO',
+    numHands: 1
+  });
+  statusCb('Requesting camera…');
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 640, height: 480 }, audio: false
+  });
+  video.srcObject = stream;
+  await video.play();
+  video.style.display = 'block';
+  cursor.mode = 'hand';
+}
+
+let lastVideoTime = -1;
+function pollHand() {
+  if (cursor.mode !== 'hand' || !handLandmarker || video.readyState < 2) return;
+  if (video.currentTime === lastVideoTime) return;
+  lastVideoTime = video.currentTime;
+  const res = handLandmarker.detectForVideo(video, performance.now());
+  if (res.landmarks && res.landmarks.length) {
+    const lm = res.landmarks[0];
+    const tip = lm[8], thumb = lm[4];
+    // position = midpoint of thumb & index, mirrored (selfie view)
+    const mx = (1 - (tip.x + thumb.x) / 2) * W;
+    const my = ((tip.y + thumb.y) / 2) * H;
+    cursor.x += (mx - cursor.x) * .4;
+    cursor.y += (my - cursor.y) * .4;
+    // pinch = thumb-to-index distance relative to hand size (with hysteresis)
+    const d = Math.hypot(tip.x - thumb.x, tip.y - thumb.y);
+    const ref = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || .1;
+    const ratio = d / ref;
+    if (!cursor.pinch && ratio < .38) cursor.pinch = true;
+    if (cursor.pinch && ratio > .55) cursor.pinch = false;
+    cursor.present = true;
+  } else {
+    cursor.present = false;
+    cursor.pinch = false;
+  }
+}
+
+// Mouse / touch fallback
+function toCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+canvas.addEventListener('mousemove', e => {
+  if (cursor.mode !== 'mouse') return;
+  const p = toCanvas(e); cursor.x = p.x; cursor.y = p.y; cursor.present = true;
+});
+canvas.addEventListener('mousedown', () => { if (cursor.mode === 'mouse') cursor.pinch = true; });
+window.addEventListener('mouseup', () => { if (cursor.mode === 'mouse') cursor.pinch = false; });
+canvas.addEventListener('touchmove', e => {
+  if (cursor.mode !== 'mouse') return;
+  const p = toCanvas(e.touches[0]); cursor.x = p.x; cursor.y = p.y;
+  cursor.present = true; e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+  if (cursor.mode !== 'mouse') return;
+  const p = toCanvas(e.touches[0]); cursor.x = p.x; cursor.y = p.y;
+  cursor.present = true; cursor.pinch = true; e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchend', () => { if (cursor.mode === 'mouse') cursor.pinch = false; });
+
+/* ---------------------------------------------------------------------
+   5. GAME STATE
+--------------------------------------------------------------------- */
+let state = 'start';          // start | playing | over
+let timeLeft = ROUND_SECONDS;
+let basketCount = 0;
+let stack = [];               // what's visually piled on Albert's back
+let droppedBasket = null;     // the basket, if Albert slipped and dropped it
+let cows = [];                // wandering cows
+let wolves = [];              // wolves on the hunt for Albert
+let flyers = [];              // cows mid-air, flying into the basket
+let poops = [];               // 💩 decorations left on the field
+let particles = [];
+let popups = [];
+let camX = 0;                 // parallax camera position in world coords
+let lastTickSec = -1;
+let wolfTimer = 15;           // seconds until next wolf
+let waveT = 0;
+
+// Albert — the player character. He runs toward your hand. (screen coords)
+const albert = {
+  x: W / 2, y: 420, face: 1,
+  runPhase: 0, moving: false, grabT: 0, dustT: 0, slipT: 0,
+};
+const ALBERT_SPEED = 430;     // px per second
+
+function spawnCow(x = null, y = null, forceKind = null) {
+  if (cows.length >= MAX_COWS) return;      // field is busy enough
+  const kind = forceKind || (Math.random() < .13 ? 'gold' : 'cow');
+  cows.push({
+    type: kind,                       // 'cow' | 'gold' | 'wolf'
+    breed: BREED_KEYS[irnd(0, BREED_KEYS.length)],
+    x: x ?? rnd(80, WORLD_W - 80),
+    y: y ?? rnd(FIELD_TOP + 30, FIELD_BOTTOM),
+    vx: rnd(10, 26) * (Math.random() < .5 ? -1 : 1),
+    bob: rnd(0, 6.28),
+    state: 'walk',                    // walk | graze | poop
+    stateT: rnd(1.5, 4),              // time left in current state
+    pooped: false,
+  });
+}
+function spawnWolf() {
+  const fromLeft = Math.random() < .5;
+  wolves.push({
+    type: 'wolf',
+    x: fromLeft ? -40 : WORLD_W + 40,
+    y: rnd(FIELD_TOP + 30, FIELD_BOTTOM),
+    vx: fromLeft ? 1 : -1,
+    bob: 0, state: 'chase', t: rnd(1.4, 2.2), bursts: 0, fleeDir: 0, tx: null, ty: null,
+  });
+  sfx.howl();
+}
+
+function resetGame() {
+  cows = []; wolves = []; flyers = []; poops = []; particles = []; popups = [];
+  basketCount = 0; stack = []; droppedBasket = null;
+  timeLeft = ROUND_SECONDS; lastTickSec = -1; wolfTimer = 15;
+  albert.x = W / 2; albert.y = 420; albert.face = 1; albert.grabT = 0; albert.slipT = 0;
+  for (let i = 0; i < 5; i++) spawnCow();
+}
+
+function addPopup(x, y, text, color = '#fff') {
+  popups.push({ x, y, text, color, life: 1.4 });
+}
+function burst(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x, y, vx: rnd(-70, 70), vy: rnd(-110, -20),
+      life: rnd(.4, .9), color
+    });
+  }
+}
+
+// where the basket sits on Albert's back (screen coords)
+function basketPos() {
+  return {
+    x: albert.x - albert.face * 27,
+    y: albert.y - SPR.albert.height + 18
+  };
+}
+
+/* ---------------------------------------------------------------------
+   6. UPDATE
+--------------------------------------------------------------------- */
+let prevPinch = false;
+
+function update(dt) {
+  // parallax camera follows Albert
+  const target = (albert.x / W) * (WORLD_W - W);
+  camX += (target - camX) * Math.min(1, dt * 4);
+
+  clouds.forEach(c => { c.x += c.v * dt; if (c.x > LAYER_W) c.x = -120; });
+  waveT += dt;
+
+  if (state !== 'playing') { prevPinch = cursor.pinch; return; }
+
+  // ----- timer -----
+  timeLeft -= dt;
+  const sec = Math.ceil(timeLeft);
+  if (sec !== lastTickSec) {
+    lastTickSec = sec;
+    if (sec <= 10 && sec > 0) sfx.tick();
+  }
+  if (timeLeft <= 0) { endGame(); return; }
+
+  // ----- Albert runs toward your hand (unless he's flat on the ground) -----
+  if (cursor.present && albert.slipT <= 0) {
+    const tx = cursor.x;
+    const ty = Math.min(H - 24, Math.max(FIELD_TOP + 14, cursor.y));
+    const dx = tx - albert.x, dy = ty - albert.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 6) {
+      const step = Math.min(dist, ALBERT_SPEED * dt);
+      albert.x += dx / dist * step;
+      albert.y += dy / dist * step;
+      albert.moving = true;
+      albert.runPhase += dt * 11;
+      if (Math.abs(dx) > 4) albert.face = dx > 0 ? 1 : -1;
+      // running dust
+      albert.dustT -= dt;
+      if (albert.dustT <= 0) {
+        albert.dustT = .13;
+        particles.push({
+          x: albert.x - albert.face * 14, y: albert.y - 4,
+          vx: -albert.face * rnd(20, 50), vy: rnd(-30, -5),
+          life: rnd(.25, .5), color: '#cbb98a'
+        });
+      }
+    } else {
+      albert.moving = false;
+    }
+  } else {
+    albert.moving = false;
+  }
+  if (albert.grabT > 0) albert.grabT -= dt;
+  if (albert.slipT > 0) {
+    albert.slipT -= dt;
+    albert.moving = false;
+    // dizzy stars while he's down
+    if (Math.random() < dt * 9) particles.push({
+      x: albert.x + rnd(-26, 26), y: albert.y - 30 + rnd(-10, 10),
+      vx: rnd(-15, 15), vy: rnd(-28, -10), life: rnd(.3, .6), color: '#ffe27a'
+    });
+  }
+
+  // ----- wolf spawner -----
+  wolfTimer -= dt;
+  if (wolfTimer <= 0) {
+    spawnWolf();
+    wolfTimer = rnd(14, 22);
+  }
+
+  // ----- cows: walk, graze, poop -----
+  const speedUp = timeLeft < 25 ? 1.5 : 1;   // gets harder late game
+  for (const c of cows) {
+    c.bob += dt * 6;
+    c.stateT -= dt;
+    if (c.state === 'walk') {
+      c.x += c.vx * dt * speedUp;
+      if (c.x < 40) { c.x = 40; c.vx = Math.abs(c.vx); }
+      if (c.x > WORLD_W - 40) { c.x = WORLD_W - 40; c.vx = -Math.abs(c.vx); }
+      if (c.stateT <= 0) {
+        const roll = Math.random();
+        if (roll < .42) {                        // keep walking, new direction
+          c.state = 'walk'; c.stateT = rnd(1.5, 4);
+          c.vx = rnd(10, 30) * (Math.random() < .5 ? -1 : 1);
+          c.y = Math.min(FIELD_BOTTOM, Math.max(FIELD_TOP + 30, c.y + rnd(-34, 34)));
+        } else if (roll < .8) {                  // stop for a snack
+          c.state = 'graze'; c.stateT = rnd(1.8, 3.6);
+        } else {                                 // nature calls
+          c.state = 'poop'; c.stateT = 1.6; c.pooped = false;
+        }
+      }
+    } else if (c.state === 'graze') {
+      // munching grass — little green bits fly up
+      if (Math.random() < dt * 5) {
+        const headX = c.x + (c.vx > 0 ? 26 : -26);
+        particles.push({
+          wx: headX, wy: c.y - 4,               // world-space particle
+          vx: rnd(-25, 25), vy: rnd(-60, -25),
+          life: rnd(.3, .6), color: '#4c8440', world: true
+        });
+      }
+      if (c.stateT <= 0) { c.state = 'walk'; c.stateT = rnd(1.5, 4); }
+    } else if (c.state === 'poop') {
+      // a little wiggle of concentration, then... plop
+      if (!c.pooped && c.stateT < .5) {
+        c.pooped = true;
+        const tailX = c.x + (c.vx > 0 ? -34 : 34);
+        poops.push({ x: tailX, y: c.y + 2, life: 12 });
+        sfx.plop();
+      }
+      if (c.stateT <= 0) {
+        c.state = 'walk'; c.stateT = rnd(1.5, 4);
+        c.vx = rnd(14, 30) * (Math.random() < .5 ? -1 : 1);  // scurry away
+      }
+    }
+  }
+
+  // ----- the wolf hunts Albert... when he can focus -----
+  const albertWX = albert.x + camX;            // Albert's position in world coords
+  for (const wf of wolves) {
+    wf.bob += dt * 9;
+    if (wf.state === 'chase') {
+      wf.t -= dt;
+      const dx = albertWX - wf.x, dy = albert.y - wf.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const sp = timeLeft < 25 ? 228 : 200;    // much slower than Albert — easy to outrun
+      wf.x += dx / d * sp * dt;
+      wf.y += dy / d * sp * dt;
+      wf.vx = dx;                              // which way he faces
+      wf.y = Math.min(FIELD_BOTTOM, Math.max(FIELD_TOP + 14, wf.y));
+      // caught you!
+      if (Math.hypot(wf.x - camX - albert.x, wf.y - albert.y) < 34) {
+        wf.state = 'flee';
+        wf.fleeDir = wf.x < WORLD_W / 2 ? -1 : 1;
+        if (basketCount > 0) {
+          sfx.bad();
+          addPopup(albert.x, albert.y - 110, 'THE COWS ESCAPED!', '#ff5a5a');
+          burst(albert.x, albert.y - 60, '#9a9a9a', 24);
+          const escaped = Math.min(basketCount, 4);   // only a few wander back onto the field
+          for (let i = 0; i < escaped; i++)
+            spawnCow(
+              Math.min(WORLD_W - 60, Math.max(60, albertWX + rnd(-280, 280))),
+              rnd(FIELD_TOP + 30, FIELD_BOTTOM), 'cow');
+          basketCount = 0; stack = [];
+        } else {
+          addPopup(albert.x, albert.y - 110, 'GRRR!', '#ff5a5a');
+        }
+      }
+      // attention span runs out — time for a little wolf moment
+      if (wf.t <= 0 && wf.state === 'chase') {
+        wf.bursts++;
+        if (wf.bursts >= 3) {
+          wf.state = 'flee';
+          wf.fleeDir = wf.x < WORLD_W / 2 ? -1 : 1;
+        } else {
+          // what's more interesting than Albert? almost everything.
+          let nearPoop = null, npd = 280;
+          for (const p of poops) {
+            const pd = Math.hypot(p.x - wf.x, p.y - wf.y);
+            if (pd < npd) { npd = pd; nearPoop = p; }
+          }
+          const pick = Math.random();
+          const sx = wf.x - camX;
+          if (nearPoop && pick < .5) {
+            // oooh, what's THAT smell
+            wf.state = 'sniff'; wf.tx = nearPoop.x; wf.ty = nearPoop.y;
+            wf.t = rnd(2.4, 3.4);
+            addPopup(sx, wf.y - 72, 'sniff sniff?', '#cfe3b8');
+          } else {
+            wf.state = pick < .3 ? 'sniff' : pick < .6 ? 'tail' : 'howl';
+            wf.tx = null;
+            wf.t = wf.state === 'howl' ? 2 : rnd(2, 3);
+            if (wf.state === 'howl') { sfx.howl(); addPopup(sx, wf.y - 80, 'AWOOO!', '#fdf6e3'); }
+            if (wf.state === 'sniff') addPopup(sx, wf.y - 72, 'sniff sniff', '#cfe3b8');
+            if (wf.state === 'tail') addPopup(sx, wf.y - 72, '!?', '#cfe3b8');
+          }
+        }
+      }
+    } else if (wf.state === 'sniff' || wf.state === 'tail' || wf.state === 'howl') {
+      wf.t -= dt;
+      if (wf.state === 'sniff') {
+        // trot over to whatever smells interesting
+        if (wf.tx != null) {
+          const dx = wf.tx - wf.x, dy = wf.ty - wf.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 20) { wf.x += dx / d * 95 * dt; wf.y += dy / d * 95 * dt; wf.vx = dx; }
+        }
+        if (Math.random() < dt * 6) {
+          // nose down, bits flying (brown if it's... that)
+          particles.push({ wx: wf.x + (wf.vx > 0 ? 24 : -24), wy: wf.y - 6,
+            vx: rnd(-20, 20), vy: rnd(-40, -15), life: rnd(.3, .5),
+            color: wf.tx != null ? '#8a5a2b' : '#4c8440', world: true });
+        }
+      } else if (wf.state === 'tail') {
+        // spinning after his own tail
+        wf.vx = Math.sin(wf.bob * 1.6);
+        wf.x += Math.sin(wf.bob * 1.6) * 30 * dt;
+      } else if (wf.state === 'howl' && Math.random() < dt * 5) {
+        // little notes drifting up at the sky
+        particles.push({ wx: wf.x, wy: wf.y - 56,
+          vx: rnd(-12, 12), vy: rnd(-55, -30), life: rnd(.5, .9), color: '#fdf6e3', world: true });
+      }
+      if (wf.t <= 0) { wf.state = 'chase'; wf.t = rnd(1.4, 2.2); wf.tx = null; }
+    } else { // flee
+      wf.x += wf.fleeDir * 430 * dt;
+      wf.vx = wf.fleeDir;
+    }
+  }
+  wolves = wolves.filter(wf => wf.x > -90 && wf.x < WORLD_W + 90);
+
+  // poops slowly biodegrade
+  for (const p of poops) p.life -= dt;
+  poops = poops.filter(p => p.life > 0);
+
+  // ...and they're slippery! (you keep your cows, but you slow way down)
+  if (albert.slipT <= 0) {
+    for (const p of poops) {
+      if (Math.hypot(p.x - albertWX, p.y - albert.y) < 26) {
+        albert.slipT = 1.1;
+        p.life = 0;                 // stepped right in it
+        sfx.slip();
+        addPopup(albert.x, albert.y - 100, 'SLIPPED!', '#d9a066');
+        burst(albert.x, albert.y - 8, '#8a5a2b', 10);
+        // the basket goes flying! walk over it to pick it back up
+        if (basketCount > 0) {
+          if (droppedBasket) {
+            droppedBasket.count += basketCount;
+            droppedBasket.stack = droppedBasket.stack.concat(stack);
+          } else {
+            droppedBasket = {
+              x: Math.min(WORLD_W - 40, Math.max(40, albertWX + albert.face * 80 + rnd(-20, 20))),
+              y: Math.min(FIELD_BOTTOM, Math.max(FIELD_TOP + 20, albert.y + rnd(-16, 16))),
+              count: basketCount, stack: stack.slice(),
+            };
+          }
+          basketCount = 0; stack = [];
+          addPopup(albert.x, albert.y - 124, 'BASKET DOWN!', '#ff5a5a');
+        }
+        break;
+      }
+    }
+  }
+
+  // walk over the dropped basket to scoop it back up
+  if (droppedBasket && albert.slipT <= 0) {
+    if (Math.hypot(droppedBasket.x - albertWX, droppedBasket.y - albert.y) < 46) {
+      basketCount += droppedBasket.count;
+      stack = droppedBasket.stack.concat(stack);
+      droppedBasket = null;
+      sfx.pickup();
+      addPopup(albert.x, albert.y - 110, 'GOT THE BASKET!', '#cfe3b8');
+    }
+  }
+
+  // ----- pinch near a cow = Albert scoops it -----
+  const justPinched = cursor.pinch && !prevPinch;
+  prevPinch = cursor.pinch;
+
+  if (justPinched && cursor.present && albert.slipT <= 0) {
+    albert.grabT = .3;
+    let best = null, bestD = GRAB_RADIUS;
+    for (const c of cows) {
+      const sx = c.x - camX, sy = c.y;
+      const d = Math.hypot(sx - albert.x, sy - (albert.y - 20));
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    if (best) {
+      cows = cows.filter(c => c !== best);
+      flyers.push({ type: best.type, breed: best.breed, sx: best.x - camX, sy: best.y - 36, t: 0 });
+      sfx.pickup();
+      burst(best.x - camX, best.y - 20, '#cfe3b8', 6);
+    } else {
+      burst(albert.x, albert.y - 30, '#e8c890', 4); // whiffed!
+    }
+  }
+
+  // ----- flying cows arc into the basket -----
+  for (const f of flyers) {
+    f.t += dt * 2.6;
+    if (f.t >= 1) {
+      if (f.type === 'gold') {
+        basketCount += 3;
+        stack.push('gold');
+        sfx.gold();
+        addPopup(albert.x, albert.y - 110, '+3 GOLDEN MOO!', '#f7c531');
+        burst(albert.x, albert.y - 80, '#ffd95e', 14);
+        setTimeout(() => { if (state === 'playing') spawnCow(); }, rnd(3500, 6000));
+      } else {
+        basketCount += 1;
+        stack.push(f.breed);
+        sfx.moo();
+        addPopup(albert.x, albert.y - 110, '+1', '#fdf6e3');
+        burst(albert.x, albert.y - 80, '#f8f8f8', 8);
+        setTimeout(() => { if (state === 'playing') spawnCow(); }, rnd(3500, 6000));
+      }
+    }
+  }
+  flyers = flyers.filter(f => f.t < 1);
+
+  // ----- particles & popups -----
+  for (const p of particles) {
+    p.life -= dt;
+    if (p.world) { p.wx += p.vx * dt; p.wy += p.vy * dt; }
+    else { p.x += p.vx * dt; p.y += p.vy * dt; }
+    p.vy += 260 * dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+  for (const p of popups) { p.life -= dt; p.y -= 26 * dt; }
+  popups = popups.filter(p => p.life > 0);
+}
+
+function endGame() {
+  state = 'over';
+  stopBGM();
+  sfx.fanfare();
+  document.getElementById('endScore').textContent =
+    `Albert herded ${basketCount} cow${basketCount === 1 ? '' : 's'}! 🧺`;
+  const quips = basketCount >= 20 ? ['Legendary herding. The pasture bows to you.']
+    : basketCount >= 12 ? ['Udderly impressive work, partner!']
+    : basketCount >= 6 ? ['Not bad! The herd salutes you.']
+    : ['The cows were extra sneaky today…'];
+  document.getElementById('endQuip').textContent = quips[0];
+  // leaderboard: offer to save this round's score
+  document.getElementById('saveRow').classList.remove('hidden');
+  const input = document.getElementById('nameInput');
+  try { input.value = localStorage.getItem('albertLastName') || ''; } catch {}
+  renderBoard();
+  document.getElementById('endOverlay').classList.remove('hidden');
+  confettiRain();
+}
+
+/* ----- leaderboard (saved in this browser with localStorage) ----- */
+const SCORES_KEY = 'albertRoundupScores';
+function loadScores() {
+  try { return JSON.parse(localStorage.getItem(SCORES_KEY)) || []; }
+  catch { return []; }
+}
+function renderBoard(highlightDate = null) {
+  const board = document.getElementById('board');
+  const scores = loadScores().sort((a, b) => b.score - a.score).slice(0, 10);
+  if (!scores.length) { board.innerHTML = ''; return; }
+  board.innerHTML = '<p class="bTitle">🏆 TOP HERDERS 🏆</p>' +
+    scores.map((s, i) =>
+      `<div class="row${s.date === highlightDate ? ' me' : ''}">` +
+      `<span><span class="rank">${i + 1}.</span>${s.name}</span>` +
+      `<span>${s.score} 🐄</span></div>`).join('');
+}
+document.getElementById('btnSave').addEventListener('click', () => {
+  const input = document.getElementById('nameInput');
+  const name = (input.value.trim() || 'MYSTERY FARMER')
+    .toUpperCase().replace(/[<>&"']/g, '').slice(0, 12);
+  const entry = { name, score: basketCount, date: Date.now() };
+  const scores = loadScores();
+  scores.push(entry);
+  try {
+    localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+    localStorage.setItem('albertLastName', name);
+  } catch {}
+  document.getElementById('saveRow').classList.add('hidden');
+  renderBoard(entry.date);
+});
+
+function confettiRain() {
+  const colors = ['#f7c531', '#79b356', '#f2a0b5', '#8fd3f0', '#d62222', '#fdf6e3'];
+  for (let i = 0; i < 80; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    d.style.left = rnd(0, 100) + 'vw';
+    d.style.background = colors[i % colors.length];
+    d.style.animationDuration = rnd(2.2, 4.5) + 's';
+    d.style.animationDelay = rnd(0, 1.6) + 's';
+    document.getElementById('wrap').appendChild(d);
+    setTimeout(() => d.remove(), 7000);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   7. DRAW
+--------------------------------------------------------------------- */
+function px(n) { return Math.round(n); }
+
+function cowSprite(c) {
+  if (c.type === 'wolf') {
+    // gallop when on the move, stand still when distracted
+    if ((c.state === 'chase' || c.state === 'flee') && Math.floor(c.bob * 1.4) % 2) return SPR.wolfRun2;
+    return SPR.wolf;
+  }
+  const set = SPR.cows[c.type === 'gold' ? 'gold' : c.breed];
+  if (c.state === 'graze') return set.graze;
+  if (c.state === 'walk' && Math.floor(c.bob * 1.2) % 2) return set.walk2;
+  return set.stand;
+}
+
+function draw() {
+  // layered parallax: farther layers slide less
+  ctx.drawImage(skyLayer, 0, 0);
+  ctx.save(); ctx.translate(px(-camX * .1), 0);
+  clouds.forEach(c => drawCloud(c.x, c.y, c.s));
+  ctx.restore();
+  ctx.drawImage(hillLayer, px(-camX * .3), 0);
+  ctx.drawImage(treeLayer, px(-camX * .6), 0);
+  ctx.drawImage(fieldLayer, px(-camX), 0);
+
+  // poops (on the grass, behind everyone)
+  for (const p of poops) {
+    ctx.globalAlpha = Math.min(1, p.life / 2);
+    ctx.drawImage(SPR.poop, px(p.x - camX - SPR.poop.width / 2), px(p.y - SPR.poop.height));
+    ctx.globalAlpha = 1;
+  }
+
+  // the dropped basket, waiting to be rescued
+  if (droppedBasket) {
+    const bx = px(droppedBasket.x - camX), by = px(droppedBasket.y);
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.fillRect(bx - SPR.basket.width / 2 + 4, by - 4, SPR.basket.width - 8, 5);
+    // cows still huddled inside
+    const peek = Math.min(droppedBasket.count, 3);
+    for (let i = 0; i < peek; i++) {
+      const mini = SPR.cows[droppedBasket.stack[i] || 'holstein'].mini;
+      ctx.drawImage(mini, bx - 28 + i * 20, by - SPR.basket.height - 18);
+    }
+    // tipped basket
+    ctx.save();
+    ctx.translate(bx, by - SPR.basket.height);
+    ctx.rotate(-.3);
+    ctx.drawImage(SPR.basket, -SPR.basket.width / 2, 0);
+    ctx.restore();
+    // bouncing "!" so you can spot it
+    ctx.font = '14px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ff5a5a'; ctx.textAlign = 'center';
+    ctx.fillText('!', bx, by - 52 + Math.sin(waveT * 6) * 4);
+  }
+
+  // animals (depth-sorted so lower = in front)
+  const sorted = [...cows, ...wolves].sort((a, b) => a.y - b.y);
+  for (const c of sorted) {
+    const img = cowSprite(c);
+    const wobble = (c.state === 'poop') ? Math.sin(c.bob * 5) * 2 : 0;
+    const bobY = (c.state === 'walk' || c.type === 'wolf') ? Math.sin(c.bob) * 2 : 0;
+    let dip = (c.state === 'graze') ? 4 : 0;     // head dips down for a snack
+    if (c.type === 'wolf' && c.state === 'sniff') dip = 5;   // nose to the ground
+    if (c.type === 'wolf' && c.state === 'howl') dip = -6;   // head to the sky
+    const sx = px(c.x - camX - img.width / 2 + wobble);
+    const sy = px(c.y - img.height + bobY + dip);
+    if (sx < -80 || sx > W + 80) continue;
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.fillRect(sx + 8, px(c.y) - 4, img.width - 16, 6);
+    if (c.vx > 0) drawFlipped(img, sx, sy); else ctx.drawImage(img, sx, sy);
+    if (c.type === 'gold') { // sparkle
+      if (Math.sin(waveT * 7 + c.bob) > .4) {
+        ctx.fillStyle = '#fff8b8';
+        ctx.fillRect(sx + irnd(0, img.width), sy + irnd(-6, img.height), 4, 4);
+      }
+    }
+  }
+
+  drawAlbert();
+
+  // cows flying into the basket (on top of everything)
+  const bp = basketPos();
+  for (const f of flyers) {
+    const img = SPR.cows[f.type === 'gold' ? 'gold' : f.breed].stand;
+    const fx = f.sx + (bp.x - f.sx) * f.t;
+    const fy = f.sy + (bp.y - 30 - f.sy) * f.t - Math.sin(f.t * Math.PI) * 80;
+    const s = 1 - f.t * .45;  // shrink as it lands
+    ctx.save();
+    ctx.translate(px(fx), px(fy));
+    ctx.scale(s, s);
+    ctx.rotate(Math.sin(f.t * Math.PI * 2) * .3);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    ctx.restore();
+  }
+
+  // foreground grass tufts (strongest parallax)
+  ctx.drawImage(frontLayer, px(-camX * 1.25), H - 70);
+
+  // particles (some live in world space, some in screen space)
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    const sx = p.world ? p.wx - camX : p.x;
+    const sy = p.world ? p.wy : p.y;
+    ctx.fillRect(px(sx), px(sy), 5, 5);
+  }
+  ctx.globalAlpha = 1;
+
+  // popups
+  ctx.textAlign = 'center';
+  for (const p of popups) {
+    ctx.globalAlpha = Math.min(1, p.life);
+    ctx.font = '13px "Press Start 2P", monospace';
+    ctx.fillStyle = '#1c1c1c'; ctx.fillText(p.text, px(p.x) + 2, px(p.y) + 2);
+    ctx.fillStyle = p.color;   ctx.fillText(p.text, px(p.x), px(p.y));
+  }
+  ctx.globalAlpha = 1;
+
+  drawHUD();
+
+  // hand cursor (Albert chases this)
+  if (state === 'playing') {
+    if (cursor.present || cursor.mode === 'mouse') {
+      const g = cursor.pinch ? SPR.glovePinch : SPR.gloveOpen;
+      ctx.globalAlpha = .65;
+      ctx.drawImage(g, px(cursor.x - g.width / 2), px(cursor.y - g.height / 2));
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.font = '11px "Press Start 2P", monospace';
+      ctx.fillStyle = '#1c1c1c'; ctx.textAlign = 'center';
+      ctx.fillText('SHOW YOUR HAND TO THE CAMERA ✋', W / 2, 70);
+    }
+  }
+}
+
+function drawAlbert() {
+  let img = SPR.albert;
+  if (albert.grabT > 0) img = SPR.albertGrab;
+  else if (albert.moving) img = (Math.floor(albert.runPhase) % 2) ? SPR.albertRun1 : SPR.albertRun2;
+  const ax = px(albert.x - img.width / 2);
+  const ay = px(albert.y - img.height);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.fillRect(ax + 8, px(albert.y) - 5, img.width - 16, 6);
+
+  // basket on his back (drawn behind his body) — unless he dropped it!
+  if (!droppedBasket) {
+    const bp = basketPos();
+    const bx = px(bp.x - SPR.basket.width / 2);
+    const by = px(bp.y);
+    // stacked cows in/above the basket — wobble as he runs
+    const show = Math.min(stack.length, 5);
+    for (let i = 0; i < show; i++) {
+      const mini = SPR.cows[stack[stack.length - show + i]].mini;
+      const wob = Math.sin(waveT * 6 + i * 1.7) * (albert.moving ? 3 : 1.2);
+      const mx = px(bp.x - mini.width / 2 + wob);
+      const my = px(by - 6 - i * 12);
+      if (albert.face > 0) drawFlipped(mini, mx, my); else ctx.drawImage(mini, mx, my);
+    }
+    ctx.drawImage(SPR.basket, bx, by);
+    if (stack.length > 5) {
+      ctx.font = '9px "Press Start 2P", monospace';
+      ctx.fillStyle = '#23301c'; ctx.textAlign = 'center';
+      ctx.fillText(`x${basketCount}`, px(bp.x), px(by - 6 - show * 12 - 4));
+    }
+  }
+
+  // Albert himself — flat on his back if he slipped!
+  if (albert.slipT > 0) {
+    ctx.save();
+    ctx.translate(px(albert.x), px(albert.y) - 8);
+    ctx.rotate(albert.face * Math.PI / 2);
+    ctx.drawImage(img, -img.width / 2, -img.height + 8);
+    ctx.restore();
+  } else if (albert.face > 0) {
+    drawFlipped(img, ax, ay);
+  } else {
+    ctx.drawImage(img, ax, ay);
+  }
+
+  // name tag — sits at his feet
+  ctx.font = '9px "Press Start 2P", monospace';
+  ctx.fillStyle = '#23301c'; ctx.textAlign = 'center';
+  ctx.fillText('ALBERT', px(albert.x), px(albert.y) + 16);
+}
+
+function drawHUD() {
+  // top banner
+  ctx.fillStyle = 'rgba(35,48,28,.82)';
+  ctx.fillRect(0, 0, W, 44);
+  ctx.font = '13px "Press Start 2P", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fdf6e3';
+  ctx.fillText(`🧺 ${basketCount}`, 18, 29);
+
+  if (state === 'playing') {
+    const sec = Math.max(0, Math.ceil(timeLeft));
+    ctx.textAlign = 'center';
+    ctx.fillStyle = sec <= 10 ? (sec % 2 ? '#ff5a5a' : '#fdf6e3') : '#fdf6e3';
+    ctx.fillText(`⏱ ${String(Math.floor(sec / 60))}:${String(sec % 60).padStart(2, '0')}`, W / 2, 29);
+    // timer bar
+    ctx.fillStyle = '#1c1c1c'; ctx.fillRect(W / 2 + 90, 12, 204, 20);
+    ctx.fillStyle = sec <= 10 ? '#ff5a5a' : '#79b356';
+    ctx.fillRect(W / 2 + 92, 14, 200 * (timeLeft / ROUND_SECONDS), 16);
+  }
+  ctx.textAlign = 'right';
+  ctx.font = '9px "Press Start 2P", monospace';
+  ctx.fillStyle = '#cfe3b8';
+  ctx.fillText(cursor.mode === 'hand' ? '✋ HAND MODE' : '🖱 MOUSE MODE', W - 70, 28);
+}
+
+/* ---------------------------------------------------------------------
+   8. MAIN LOOP + UI WIRING
+--------------------------------------------------------------------- */
+let lastT = performance.now();
+function loop(t) {
+  const dt = Math.min(.05, (t - lastT) / 1000);
+  lastT = t;
+  pollHand();
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+const startOverlay = document.getElementById('startOverlay');
+const endOverlay = document.getElementById('endOverlay');
+const statusEl = document.getElementById('status');
+
+function beginRound() {
+  resetGame();
+  startOverlay.classList.add('hidden');
+  endOverlay.classList.add('hidden');
+  document.querySelectorAll('.confetti').forEach(d => d.remove());
+  state = 'playing';
+  startBGM();
+}
+
+document.getElementById('btnCam').addEventListener('click', async () => {
+  initAudio();
+  const btn = document.getElementById('btnCam');
+  btn.disabled = true;
+  try {
+    statusEl.textContent = 'Loading hand tracking…';
+    await setupHands(msg => statusEl.textContent = msg);
+    statusEl.textContent = '';
+    beginRound();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = '⚠ Camera unavailable — starting in mouse mode!';
+    cursor.mode = 'mouse';
+    setTimeout(beginRound, 1400);
+  }
+  btn.disabled = false;
+});
+
+document.getElementById('btnMouse').addEventListener('click', () => {
+  initAudio();
+  cursor.mode = 'mouse';
+  beginRound();
+});
+
+document.getElementById('btnAgain').addEventListener('click', () => {
+  initAudio();
+  beginRound();
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
