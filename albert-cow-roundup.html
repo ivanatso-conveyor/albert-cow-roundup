@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Albert's Last Roundup 🐄</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -29,6 +29,7 @@
     aspect-ratio: 16/9;
     width: min(100vw, calc(100vh * 16 / 9));
     cursor: none;
+    touch-action: none;   /* finger drags move Albert, not the page */
   }
   #cam {
     position: absolute; bottom: 12px; right: 12px;
@@ -106,6 +107,29 @@
     font-size: 14px; padding: 8px 10px; margin: 0;
     background: rgba(35,48,28,.8);
   }
+  /* hints that only show on phones/tablets */
+  #rotateHint, #touchHint { display: none; font-size: 8px; color: #7a4a21; margin: 6px 0 0; }
+  @media (pointer: coarse) { #touchHint { display: block; } }
+  @media (max-width: 700px) and (orientation: portrait) { #rotateHint { display: block; } }
+  /* small screens: shrink the overlay cards so everything fits */
+  @media (max-width: 700px) {
+    .card { padding: 14px 12px; line-height: 1.6; max-height: 92vh; overflow-y: auto; }
+    .card h1 { font-size: 14px; }
+    .card p { font-size: 8px; }
+    .card .big { font-size: 9px; }
+    .gesture { font-size: 24px; letter-spacing: 8px; margin: 6px 0; }
+    .legend { gap: 16px; margin: 4px auto 6px; }
+    .legend img { height: 34px; }
+    .legend #legendPoop { height: 20px; }
+    .legend .item { font-size: 7px; gap: 6px; }
+    button { font-size: 8px; padding: 10px 9px; margin: 6px 3px 0; }
+    #endTitle { font-size: 15px; }
+    #nameInput { width: 140px; font-size: 9px; padding: 9px; }
+    #saveRow button { padding: 9px 8px; }
+    #board { font-size: 8px; max-height: 110px; }
+    #cam { width: 84px; bottom: 8px; right: 8px; border-width: 2px; }
+    #muteBtn { font-size: 11px; padding: 6px 8px; }
+  }
 </style>
 </head>
 <body>
@@ -127,6 +151,8 @@
       </div>
       <button id="btnCam">🎥 PLAY WITH HAND TRACKING</button>
       <button id="btnMouse" class="alt">🖱️ PLAY WITH MOUSE</button>
+      <p id="touchHint">📱 Touch screen: drag your finger to run, TAP to grab a cow — works alongside hand tracking too!</p>
+      <p id="rotateHint">🔄 Rotate your phone sideways for a bigger field!</p>
       <div id="status"></div>
     </div>
   </div>
@@ -172,7 +198,7 @@ const PAL = {
   k:'#1c1c1c', w:'#f8f8f8', p:'#f4b8c1', P:'#d98a98', d:'#4a505c',
   s:'#e8b88a', o:'#6e7f4c', y:'#8d8d8d', g:'#ffd95e', G:'#c98f1b',
   a:'#9a9a9a', A:'#5f5f5f', r:'#d62222', b:'#8a5a2b', B:'#5a3415',
-  e:'#ffffff', t:'#cfb591'
+  e:'#ffffff', t:'#cfb591', c:'#a8c8e0', j:'#5a6a85'
 };
 
 // --- cow: big cute head facing you, like the reference pixel art ---
@@ -278,6 +304,57 @@ const ALBERT_GRAB_MAP = ALBERT_MAP.map((r, i) => {
   return r;
 });
 
+// --- Nadim: glasses, big grin, light blue button-down. Wolves fear him. ---
+// profile view for running (faces left, flipped when running right)
+const NADIM_MAP = [
+  "...kkkkk....",
+  "..kkkkkkkk..",
+  ".kkkkkkkkk..",
+  ".ssskkkkkk..",
+  ".kksskkkkk..",
+  "ssssskkkkk..",
+  ".seesskkkk..",
+  "..sssskk....",
+  "..cccccc....",
+  ".cccccccc...",
+  ".sccccccc...",
+  ".sccccccc...",
+  "..cccccc....",
+  "..jjjjjj....",
+  "..jj....jj..",
+  ".kk......kk."
+];
+const NADIM_RUN2_MAP = NADIM_MAP.map((r, i) => {
+  if (i === 14) return "....jj.jj...";
+  if (i === 15) return "...kk...kk..";
+  return r;
+});
+// front view for waving at Albert
+const NADIM_FRONT_MAP = [
+  "...kkkkkk...",
+  "..kkkkkkkk..",
+  ".kkkkkkkkkk.",
+  ".kkssssssk..",
+  "..kkskkskk..",
+  "..ssssssss..",
+  "..skeeeeks..",
+  "...ssssss...",
+  "...cccccc...",
+  "..cccccccc..",
+  "..sccccccs..",
+  "..sccccccs..",
+  "...cccccc...",
+  "...jj..jj...",
+  "...jj..jj...",
+  "...kk..kk..."
+];
+const NADIM_WAVE_MAP = NADIM_FRONT_MAP.map((r, i) => {
+  if (i === 7)  return "...ssssss..s";   // hand up!
+  if (i === 9)  return "..ccccccccs.";
+  if (i === 10) return "..scccccc...";
+  return r;
+});
+
 // basket worn on Albert's back
 const BASKET_MAP = [
   "kBbBbBbBbk",
@@ -359,6 +436,10 @@ const SPR = {
   albertRun1: bake(ALBERT_RUN1_MAP, 4),
   albertRun2: bake(ALBERT_RUN2_MAP, 4),
   albertGrab: bake(ALBERT_GRAB_MAP, 4),
+  nadim1:     bake(NADIM_MAP, 4, { s:'#c98e5a' }),
+  nadim2:     bake(NADIM_RUN2_MAP, 4, { s:'#c98e5a' }),
+  nadimFront: bake(NADIM_FRONT_MAP, 4, { s:'#c98e5a' }),
+  nadimWave:  bake(NADIM_WAVE_MAP, 4, { s:'#c98e5a' }),
   basket:     bake(BASKET_MAP, 4),
   gloveOpen:  bake(GLOVE_OPEN, 2),
   glovePinch: bake(GLOVE_PINCH, 2),
@@ -406,6 +487,7 @@ const sfx = {
   plop()   { beep(160, .12, 'sine', .1, 0, 70); },
   howl()   { beep(420, .5, 'sawtooth', .1, 0, 150); beep(630, .4, 'triangle', .07, .08, 220); },
   slip()   { beep(600, .35, 'sine', .13, 0, 130); },
+  yipe()   { beep(950, .1, 'square', .13); beep(720, .12, 'square', .11, .09, 500); },
   fanfare(){ [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, .16, 'square', .14, i * .14)); },
 };
 // Old MacDonald — public-domain farm tune, very quiet, loops forever
@@ -513,7 +595,7 @@ function drawCloud(x, y, s) {
 /* ---------------------------------------------------------------------
    4. INPUT — MediaPipe hand tracking, with mouse/touch fallback
 --------------------------------------------------------------------- */
-const cursor = { x: W / 2, y: H / 2, pinch: false, present: false, mode: 'mouse' };
+const cursor = { x: W / 2, y: H / 2, pinch: false, pulse: false, present: false, mode: 'mouse' };
 let handLandmarker = null;
 const video = document.getElementById('cam');
 
@@ -544,6 +626,7 @@ async function setupHands(statusCb) {
 let lastVideoTime = -1;
 function pollHand() {
   if (cursor.mode !== 'hand' || !handLandmarker || video.readyState < 2) return;
+  if (performance.now() < touchHold) return;   // finger on screen takes priority
   if (video.currentTime === lastVideoTime) return;
   lastVideoTime = video.currentTime;
   const res = handLandmarker.detectForVideo(video, performance.now());
@@ -579,17 +662,28 @@ canvas.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mousedown', () => { if (cursor.mode === 'mouse') cursor.pinch = true; });
 window.addEventListener('mouseup', () => { if (cursor.mode === 'mouse') cursor.pinch = false; });
-canvas.addEventListener('touchmove', e => {
-  if (cursor.mode !== 'mouse') return;
-  const p = toCanvas(e.touches[0]); cursor.x = p.x; cursor.y = p.y;
-  cursor.present = true; e.preventDefault();
-}, { passive: false });
+// touch: drag your finger to lead Albert, quick TAP = pinch/grab.
+// works in BOTH modes — while a finger is on screen it takes priority,
+// and hand tracking resumes a moment after you let go.
+let touchT = 0, touchMoved = 0, touchHold = 0;
 canvas.addEventListener('touchstart', e => {
-  if (cursor.mode !== 'mouse') return;
-  const p = toCanvas(e.touches[0]); cursor.x = p.x; cursor.y = p.y;
-  cursor.present = true; cursor.pinch = true; e.preventDefault();
+  const p = toCanvas(e.touches[0]);
+  cursor.x = p.x; cursor.y = p.y; cursor.present = true;
+  touchT = performance.now(); touchMoved = 0;
+  touchHold = performance.now() + 1500;
+  e.preventDefault();
 }, { passive: false });
-window.addEventListener('touchend', () => { if (cursor.mode === 'mouse') cursor.pinch = false; });
+canvas.addEventListener('touchmove', e => {
+  const p = toCanvas(e.touches[0]);
+  touchMoved += Math.hypot(p.x - cursor.x, p.y - cursor.y);
+  cursor.x = p.x; cursor.y = p.y; cursor.present = true;
+  touchHold = performance.now() + 1500;
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchend', () => {
+  if (performance.now() - touchT < 300 && touchMoved < 18) cursor.pulse = true;
+  cursor.pinch = false;
+});
 
 /* ---------------------------------------------------------------------
    5. GAME STATE
@@ -601,6 +695,8 @@ let stack = [];               // what's visually piled on Albert's back
 let droppedBasket = null;     // the basket, if Albert slipped and dropped it
 let cows = [];                // wandering cows
 let wolves = [];              // wolves on the hunt for Albert
+let nadim = null;             // Nadim, mid-cameo (or null)
+let nadimTimer = 14;          // seconds until Nadim's next dash
 let flyers = [];              // cows mid-air, flying into the basket
 let poops = [];               // 💩 decorations left on the field
 let particles = [];
@@ -629,7 +725,7 @@ function spawnCow(x = null, y = null, forceKind = null) {
     bob: rnd(0, 6.28),
     state: 'walk',                    // walk | graze | poop
     stateT: rnd(1.5, 4),              // time left in current state
-    pooped: false,
+    pooped: false, petT: 0,
   });
 }
 function spawnWolf() {
@@ -642,11 +738,14 @@ function spawnWolf() {
     bob: 0, state: 'chase', t: rnd(1.4, 2.2), bursts: 0, fleeDir: 0, tx: null, ty: null,
   });
   sfx.howl();
+  // Nadim has a sixth sense for wolves — he'll arrive shortly
+  if (!nadim) nadimTimer = Math.min(nadimTimer, rnd(3, 6));
 }
 
 function resetGame() {
   cows = []; wolves = []; flyers = []; poops = []; particles = []; popups = [];
   basketCount = 0; stack = []; droppedBasket = null;
+  nadim = null; nadimTimer = rnd(10, 16);
   timeLeft = ROUND_SECONDS; lastTickSec = -1; wolfTimer = 15;
   albert.x = W / 2; albert.y = 420; albert.face = 1; albert.grabT = 0; albert.slipT = 0;
   for (let i = 0; i < 5; i++) spawnCow();
@@ -747,6 +846,7 @@ function update(dt) {
   const speedUp = timeLeft < 25 ? 1.5 : 1;   // gets harder late game
   for (const c of cows) {
     c.bob += dt * 6;
+    if (c.petT > 0) { c.petT -= dt; continue; }   // being petted — too happy to move
     c.stateT -= dt;
     if (c.state === 'walk') {
       c.x += c.vx * dt * speedUp;
@@ -876,12 +976,135 @@ function update(dt) {
           vx: rnd(-12, 12), vy: rnd(-55, -30), life: rnd(.5, .9), color: '#fdf6e3', world: true });
       }
       if (wf.t <= 0) { wf.state = 'chase'; wf.t = rnd(1.4, 2.2); wf.tx = null; }
-    } else { // flee
-      wf.x += wf.fleeDir * 430 * dt;
+    } else if (wf.state === 'startled') {
+      // frozen in place — Nadim is waving his arms at him
+    } else { // flee — fast enough to escape, slow enough to watch
+      wf.x += wf.fleeDir * 260 * dt;
       wf.vx = wf.fleeDir;
     }
   }
   wolves = wolves.filter(wf => wf.x > -90 && wf.x < WORLD_W + 90);
+
+  // ----- Nadim's cameo: scare the wolf → pet a cow → wave at Albert → exit -----
+  nadimTimer -= dt;
+  if (!nadim && nadimTimer <= 0) {
+    const fromLeft = Math.random() < .5;
+    nadim = {
+      type: 'nadim',
+      x: fromLeft ? -40 : WORLD_W + 40,
+      y: rnd(FIELD_TOP + 40, FIELD_BOTTOM - 10),
+      vx: fromLeft ? 1 : -1,
+      bob: 0, state: 'run', t: 0, target: null,
+    };
+    nadimTimer = rnd(20, 34);
+  }
+  if (nadim) {
+    nadim.bob += dt * 10;
+    const NSPEED = 235;
+    if (nadim.state === 'run') {
+      nadim.x += nadim.vx * NSPEED * dt;
+      // spot a wolf? chase it down!
+      for (const wf of wolves) {
+        if (wf.state !== 'flee' && wf.state !== 'startled') {
+          nadim.state = 'chasewolf'; nadim.t = 7; nadim.wolf = wf;
+          break;
+        }
+      }
+      // halfway across with no wolf around? visit the herd anyway
+      if (nadim.state === 'run' &&
+          ((nadim.vx > 0 && nadim.x > WORLD_W * .5) || (nadim.vx < 0 && nadim.x < WORLD_W * .5))) {
+        nadim.state = 'petseek'; nadim.t = 4;
+      }
+      if (nadim.x < -60 || nadim.x > WORLD_W + 60) nadim = null;
+    } else if (nadim.state === 'chasewolf') {
+      // run right up to the wolf
+      nadim.t -= dt;
+      const wf = nadim.wolf;
+      if (!wf || !wolves.includes(wf) || wf.state === 'flee' || nadim.t <= 0) {
+        nadim.state = 'petseek'; nadim.t = 4;
+      } else {
+        const d = Math.hypot(wf.x - nadim.x, wf.y - nadim.y) || 1;
+        nadim.vx = wf.x - nadim.x;
+        nadim.x += (wf.x - nadim.x) / d * 290 * dt;
+        nadim.y += (wf.y - nadim.y) / d * 290 * dt;
+        // only corner him where everyone can see it: away from the
+        // world edges AND inside the current camera view
+        const wolfScreenX = wf.x - camX;
+        const safeSpot = wf.x > 150 && wf.x < WORLD_W - 150 &&
+                         wolfScreenX > 90 && wolfScreenX < W - 90;
+        if (d < 75 && safeSpot) {
+          nadim.state = 'shoo'; nadim.t = 1.3; nadim.shooed = false;
+          wf.state = 'startled';   // wolf freezes — what IS this guy
+        }
+      }
+    } else if (nadim.state === 'shoo') {
+      // waves his arms right in the wolf's face
+      nadim.t -= dt;
+      const wf = nadim.wolf;
+      if (!nadim.shooed && nadim.t <= .7 && wf && wolves.includes(wf)) {
+        nadim.shooed = true;
+        wf.state = 'flee';
+        wf.fleeDir = wf.x < nadim.x ? -1 : 1;
+        sfx.yipe();
+        addPopup(wf.x - camX, wf.y - 80, 'YIPE!', '#ff5a5a');
+        addPopup(nadim.x - camX, nadim.y - 95, 'SHOO! GIT!', '#a8c8e0');
+      }
+      if (nadim.t <= 0) { nadim.state = 'petseek'; nadim.t = 4; nadim.wolf = null; }
+    } else if (nadim.state === 'petseek') {
+      // jog over to the nearest cow
+      nadim.t -= dt;
+      let best = null, bd = 1e9;
+      for (const c of cows) {
+        const d = Math.hypot(c.x - nadim.x, c.y - nadim.y);
+        if (d < bd) { bd = d; best = c; }
+      }
+      nadim.target = best;
+      if (!best || nadim.t <= 0) {
+        nadim.state = 'waveseek'; nadim.t = 4;
+      } else {
+        nadim.vx = best.x - nadim.x;
+        const d = Math.max(bd, 1);
+        nadim.x += (best.x - nadim.x) / d * NSPEED * dt;
+        nadim.y += (best.y - nadim.y) / d * NSPEED * dt;
+        if (bd < 60) { nadim.state = 'pet'; nadim.t = 2.2; best.petT = 2.4; }
+      }
+    } else if (nadim.state === 'pet') {
+      // pets the cow — hearts everywhere, cow is too happy to move
+      nadim.t -= dt;
+      if (nadim.target) {
+        nadim.target.petT = Math.max(nadim.target.petT || 0, .4);
+        if (Math.random() < dt * 5) particles.push({
+          wx: nadim.target.x + rnd(-16, 16), wy: nadim.target.y - 60,
+          vx: rnd(-10, 10), vy: rnd(-40, -20), life: rnd(.5, .9),
+          color: '#f2a0b5', world: true });
+      }
+      if (nadim.t <= 0) { nadim.state = 'waveseek'; nadim.t = 4; }
+    } else if (nadim.state === 'waveseek') {
+      // jog toward Albert to say hi
+      nadim.t -= dt;
+      const ax = albert.x + camX;
+      const d = Math.hypot(ax - nadim.x, albert.y - nadim.y) || 1;
+      nadim.vx = ax - nadim.x;
+      if (d > 170 && nadim.t > 0) {
+        nadim.x += (ax - nadim.x) / d * NSPEED * dt;
+        nadim.y += (albert.y - nadim.y) / d * NSPEED * dt;
+      } else {
+        nadim.state = 'wave'; nadim.t = 1.7;
+        addPopup(nadim.x - camX, nadim.y - 95, 'HI ALBERT!', '#a8c8e0');
+        sfx.pickup();
+      }
+    } else if (nadim.state === 'wave') {
+      nadim.t -= dt;
+      if (nadim.t <= 0) {
+        nadim.state = 'exit';
+        nadim.vx = nadim.x < WORLD_W / 2 ? -1 : 1;
+      }
+    } else { // exit — jog off the nearest edge
+      nadim.x += (nadim.vx > 0 ? 1 : -1) * NSPEED * dt;
+      if (nadim.x < -60 || nadim.x > WORLD_W + 60) nadim = null;
+    }
+    if (nadim) nadim.y = Math.min(FIELD_BOTTOM, Math.max(FIELD_TOP + 14, nadim.y));
+  }
 
   // poops slowly biodegrade
   for (const p of poops) p.life -= dt;
@@ -927,8 +1150,9 @@ function update(dt) {
     }
   }
 
-  // ----- pinch near a cow = Albert scoops it -----
-  const justPinched = cursor.pinch && !prevPinch;
+  // ----- pinch (or tap) near a cow = Albert scoops it -----
+  const justPinched = (cursor.pinch && !prevPinch) || cursor.pulse;
+  cursor.pulse = false;
   prevPinch = cursor.pinch;
 
   if (justPinched && cursor.present && albert.slipT <= 0) {
@@ -1055,6 +1279,13 @@ function confettiRain() {
 function px(n) { return Math.round(n); }
 
 function cowSprite(c) {
+  if (c.type === 'nadim') {
+    if (c.state === 'wave') return (Math.floor(c.bob * 1.5) % 2) ? SPR.nadimWave : SPR.nadimFront;
+    if (c.state === 'shoo') return (Math.floor(c.bob * 3) % 2) ? SPR.nadimWave : SPR.nadimFront; // frantic arm waving
+    if (c.state === 'pet') return SPR.nadim1;
+    return (Math.floor(c.bob * 1.2) % 2) ? SPR.nadim2 : SPR.nadim1;
+  }
+  if (c.petT > 0) return SPR.cows[c.type === 'gold' ? 'gold' : c.breed].stand;
   if (c.type === 'wolf') {
     // gallop when on the move, stand still when distracted
     if ((c.state === 'chase' || c.state === 'flee') && Math.floor(c.bob * 1.4) % 2) return SPR.wolfRun2;
@@ -1107,11 +1338,11 @@ function draw() {
   }
 
   // animals (depth-sorted so lower = in front)
-  const sorted = [...cows, ...wolves].sort((a, b) => a.y - b.y);
+  const sorted = [...cows, ...wolves, ...(nadim ? [nadim] : [])].sort((a, b) => a.y - b.y);
   for (const c of sorted) {
     const img = cowSprite(c);
     const wobble = (c.state === 'poop') ? Math.sin(c.bob * 5) * 2 : 0;
-    const bobY = (c.state === 'walk' || c.type === 'wolf') ? Math.sin(c.bob) * 2 : 0;
+    const bobY = (c.state === 'walk' || c.type === 'wolf' || c.type === 'nadim') ? Math.sin(c.bob) * 2 : 0;
     let dip = (c.state === 'graze') ? 4 : 0;     // head dips down for a snack
     if (c.type === 'wolf' && c.state === 'sniff') dip = 5;   // nose to the ground
     if (c.type === 'wolf' && c.state === 'howl') dip = -6;   // head to the sky
@@ -1122,6 +1353,11 @@ function draw() {
     ctx.fillStyle = 'rgba(0,0,0,.18)';
     ctx.fillRect(sx + 8, px(c.y) - 4, img.width - 16, 6);
     if (c.vx > 0) drawFlipped(img, sx, sy); else ctx.drawImage(img, sx, sy);
+    if (c.type === 'nadim') {
+      ctx.font = '8px "Press Start 2P", monospace';
+      ctx.fillStyle = '#23301c'; ctx.textAlign = 'center';
+      ctx.fillText('NADIM', sx + img.width / 2, px(c.y) + 14);
+    }
     if (c.type === 'gold') { // sparkle
       if (Math.sin(waveT * 7 + c.bob) > .4) {
         ctx.fillStyle = '#fff8b8';
